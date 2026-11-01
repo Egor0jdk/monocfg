@@ -50,6 +50,12 @@ var pmRegistry = map[string]PMCommands{
 		Orphan:  "",
 		Check:   "apk search -e",
 	},
+	"dnf": {
+		Query:   "dnf repoquery --userinstalled --queryformat %{name}",
+		Install: "dnf install -y",
+		Orphan:  "dnf mark remove",
+		Check:   "dnf info",
+	},
 }
 
 type Config struct {
@@ -82,6 +88,8 @@ func detectManagerInStrata(strata string) string {
 	if _, err := os.Stat(base + "/sbin/apk"); err == nil { return "apk" }
 	if _, err := os.Stat(base + "/usr/bin/apk"); err == nil { return "apk" }
 	if _, err := os.Stat(base + "/usr/bin/apt"); err == nil { return "apt" }
+	if _, err := os.Stat(base + "/usr/bin/dnf"); err == nil { return "dnf" }
+	if _, err := os.Stat(base + "/bin/dnf"); err == nil { return "dnf" }
 	return ""
 }
 
@@ -109,7 +117,7 @@ func runSystemCmd(managerOrStrata, fullCmd string) (string, error) {
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
-	if strings.Contains(fullCmd, "-Q") || strings.Contains(fullCmd, "-m") || strings.Contains(fullCmd, "-Si") || strings.Contains(fullCmd, "-R") || strings.Contains(fullCmd, "show") || strings.Contains(fullCmd, "search") {
+	if strings.Contains(fullCmd, "-Q") || strings.Contains(fullCmd, "-m") || strings.Contains(fullCmd, "-Si") || strings.Contains(fullCmd, "-R") || strings.Contains(fullCmd, "show") || strings.Contains(fullCmd, "search") || strings.Contains(fullCmd, "repoquery") {
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
@@ -256,6 +264,7 @@ func syncPackages(cfg *Config, isPullMode, needConfirm bool) map[string][]string
 			if _, err := exec.LookPath("xbps-install"); err == nil { targets["xbps"] = "xbps" }
 			if _, err := exec.LookPath("apt-get"); err == nil { targets["apt"] = "apt" }
 			if _, err := exec.LookPath("apk"); err == nil { targets["apk"] = "apk" }
+			if _, err := exec.LookPath("dnf"); err == nil { targets["dnf"] = "dnf" }
 		}
 	}
 
