@@ -11,7 +11,7 @@ Unlike heavy DevOps tools (Ansible, Nix, Chezmoi) that require complex markup la
 - **One-click Snapshot:** `--pull` (-p) scans your repos and paths to save a full text snapshot into `.master.conf`.
 - **"Comma-free" Packages Syntax:** Declare software line-by-line or space-separated inside `[ ]`. No quotes, no commas.
 - **Safe Orphans Management:** Removed packages from the sheet are safely marked as dependencies (orphans), leaving your base system clean without risky raw purges.
-- **Bedrock Linux Deep Integration:** Automatically turns into Bedrock mode, inspects strata DNA via physical binaries (`pacman`, `xbps`, `apk`, `apt`), filters out symlinks, and calls operations via native `strat` without using `-r` flag isolation.
+- **Bedrock Linux Deep Integration:** Automatically turns into Bedrock mode, inspects strata DNA via physical binaries (`pacman`, `xbps`, `apk`, `apt`, `dnf`), filters out symlinks, and calls operations via native `strat` without using `-r` flag isolation.
 
 ## 📁 Configuration Paths & Priority
 The utility is designed to keep files highly accessible right at the top level of your home directories (no more digging through hidden nested folders):
