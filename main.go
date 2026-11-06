@@ -81,15 +81,33 @@ func detectBedrock() {
 
 func detectManagerInStrata(strata string) string {
 	base := "/bedrock/strata/" + strata
-	if _, err := os.Stat(base + "/usr/bin/pacman"); err == nil { return "pacman" }
-	if _, err := os.Stat(base + "/bin/pacman"); err == nil { return "pacman" }
-	if _, err := os.Stat(base + "/usr/bin/xbps-install"); err == nil { return "xbps" }
-	if _, err := os.Stat(base + "/bin/xbps-install"); err == nil { return "xbps" }
-	if _, err := os.Stat(base + "/sbin/apk"); err == nil { return "apk" }
-	if _, err := os.Stat(base + "/usr/bin/apk"); err == nil { return "apk" }
-	if _, err := os.Stat(base + "/usr/bin/apt"); err == nil { return "apt" }
-	if _, err := os.Stat(base + "/usr/bin/dnf"); err == nil { return "dnf" }
-	if _, err := os.Stat(base + "/bin/dnf"); err == nil { return "dnf" }
+	if _, err := os.Stat(base + "/usr/bin/pacman"); err == nil {
+		return "pacman"
+	}
+	if _, err := os.Stat(base + "/bin/pacman"); err == nil {
+		return "pacman"
+	}
+	if _, err := os.Stat(base + "/usr/bin/xbps-install"); err == nil {
+		return "xbps"
+	}
+	if _, err := os.Stat(base + "/bin/xbps-install"); err == nil {
+		return "xbps"
+	}
+	if _, err := os.Stat(base + "/sbin/apk"); err == nil {
+		return "apk"
+	}
+	if _, err := os.Stat(base + "/usr/bin/apk"); err == nil {
+		return "apk"
+	}
+	if _, err := os.Stat(base + "/usr/bin/apt"); err == nil {
+		return "apt"
+	}
+	if _, err := os.Stat(base + "/usr/bin/dnf"); err == nil {
+		return "dnf"
+	}
+	if _, err := os.Stat(base + "/bin/dnf"); err == nil {
+		return "dnf"
+	}
 	return ""
 }
 
@@ -98,30 +116,37 @@ func askConfirm(prompt string) bool {
 	for {
 		fmt.Printf("%s [Y/n]: ", prompt)
 		input, err := reader.ReadString('\n')
-		if err != nil { return false }
+		if err != nil {
+			return false
+		}
 		input = strings.TrimSpace(strings.ToLower(input))
-		if input == "y" || input == "" { return true }
-		if input == "n" { return false }
+		if input == "y" || input == "" {
+			return true
+		}
+		if input == "n" {
+			return false
+		}
 		fmt.Println("Please enter Y or N.")
 	}
 }
 
-func runSystemCmd(managerOrStrata, fullCmd string) (string, error) {
+func runSystemCmd(managerOrStrata string, args []string) (string, error) {
+	if len(args) == 0 {
+		return "", fmt.Errorf("empty command args")
+	}
 	var cmdArgs []string
 	if isBedrock {
 		cmdArgs = []string{"strat", managerOrStrata}
-		cmdArgs = append(cmdArgs, strings.Fields(fullCmd)...)
+		cmdArgs = append(cmdArgs, args...)
 	} else {
-		cmdArgs = strings.Fields(fullCmd)
+		cmdArgs = args
 	}
-
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-
-	if strings.Contains(fullCmd, "-Q") || strings.Contains(fullCmd, "-m") || strings.Contains(fullCmd, "-Si") || strings.Contains(fullCmd, "-R") || strings.Contains(fullCmd, "show") || strings.Contains(fullCmd, "search") || strings.Contains(fullCmd, "repoquery") {
+	fullCmdStr := strings.Join(args, " ")
+	if strings.Contains(fullCmdStr, "-Q") || strings.Contains(fullCmdStr, "-m") || strings.Contains(fullCmdStr, "-Si") || strings.Contains(fullCmdStr, "-R") || strings.Contains(fullCmdStr, "show") || strings.Contains(fullCmdStr, "search") || strings.Contains(fullCmdStr, "repoquery") {
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
-
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -132,7 +157,11 @@ func runSystemCmd(managerOrStrata, fullCmd string) (string, error) {
 func parseMasterConf(path string) (*Config, error) {
 	cfg := &Config{Managers: make(map[string][]string), Files: make(map[string]string)}
 	file, err := os.Open(path)
-	if os.IsNotExist(err) { return cfg, nil } else if err != nil { return nil, err }
+	if os.IsNotExist(err) {
+		return cfg, nil
+	} else if err != nil {
+		return nil, err
+	}
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
@@ -150,13 +179,17 @@ func parseMasterConf(path string) (*Config, error) {
 				inFileBlock = false
 				cfg.Files[currentFilePath] = strings.Join(fileLines, "")
 				fileLines = nil
-			} else { fileLines = append(fileLines, line) }
+			} else {
+				fileLines = append(fileLines, line)
+			}
 		} else if inPackageBlock {
 			if trimmed == "]" {
 				inPackageBlock = false
 				cfg.Managers[currentManager] = strings.Fields(strings.Join(packageLines, " "))
 				packageLines = nil
-			} else { packageLines = append(packageLines, line) }
+			} else {
+				packageLines = append(packageLines, line)
+			}
 		} else {
 			if strings.HasPrefix(trimmed, "packages ") && strings.Contains(trimmed, "[") {
 				inPackageBlock = true
@@ -170,7 +203,9 @@ func parseMasterConf(path string) (*Config, error) {
 				currentFilePath = strings.Trim(strings.TrimPrefix(trimmed, "// @begin "), "\"")
 			}
 		}
-		if isEOF { break }
+		if isEOF {
+			break
+		}
 	}
 	return cfg, nil
 }
@@ -178,7 +213,6 @@ func parseMasterConf(path string) (*Config, error) {
 func gatherFiles(cfg *Config) []string {
 	fileMap := make(map[string]bool)
 	for _, impPath := range cfg.Imports {
-		// Check whether the path contains a mask (an asterisk)
 		if strings.Contains(impPath, "*") {
 			matches, err := filepath.Glob(impPath)
 			if err == nil {
@@ -191,18 +225,34 @@ func gatherFiles(cfg *Config) []string {
 			}
 			continue
 		}
-
-		// If there is no asterisk, we follow the old, standard folder/file scheme
 		info, err := os.Stat(impPath)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		if info.IsDir() {
 			_ = filepath.WalkDir(impPath, func(path string, d os.DirEntry, err error) error {
-				if err == nil && !d.IsDir() { fileMap[path] = true }
+				if err != nil {
+					return nil
+				}
+				if d.Type()&os.ModeSymlink != 0 {
+					if _, err := os.Stat(path); os.IsNotExist(err) {
+						return nil
+					}
+				}
+				if !d.IsDir() {
+					fileMap[path] = true
+				}
 				return nil
 			})
-		} else { fileMap[impPath] = true }
+		} else {
+			if info.Mode()&os.ModeSymlink != 0 {
+				if _, err := os.Stat(impPath); os.IsNotExist(err) {
+					continue
+				}
+			}
+			fileMap[impPath] = true
+		}
 	}
-
 	var finalFiles []string
 	for path := range fileMap {
 		excluded := false
@@ -213,17 +263,26 @@ func gatherFiles(cfg *Config) []string {
 				break
 			}
 		}
-		if !excluded { finalFiles = append(finalFiles, path) }
+		if !excluded {
+			finalFiles = append(finalFiles, path)
+		}
 	}
 	return finalFiles
 }
 
 func applyFiles(cfg *Config) {
 	for path, content := range cfg.Files {
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil { continue }
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			continue
+		}
 		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
-		if err != nil { continue }
-		if err := f.Truncate(0); err != nil { f.Close(); continue }
+		if err != nil {
+			continue
+		}
+		if err := f.Truncate(0); err != nil {
+			f.Close()
+			continue
+		}
 		_, _ = f.Seek(0, 0)
 		_, _ = f.WriteString(content)
 		f.Close()
@@ -253,40 +312,69 @@ func syncPackages(cfg *Config, isPullMode, needConfirm bool) map[string][]string
 					// automatically filtering out any symlinks (links) and files!
 					if name != "bedrock" && f.Type().IsDir() {
 						pmType := detectManagerInStrata(name)
-						if pmType != "" { 
-							targets[name] = pmType 
+						if pmType != "" {
+							targets[name] = pmType
 						}
 					}
 				}
 			}
 		} else {
-			if _, err := exec.LookPath("pacman"); err == nil { targets["pacman"] = "pacman" }
-			if _, err := exec.LookPath("xbps-install"); err == nil { targets["xbps"] = "xbps" }
-			if _, err := exec.LookPath("apt-get"); err == nil { targets["apt"] = "apt" }
-			if _, err := exec.LookPath("apk"); err == nil { targets["apk"] = "apk" }
-			if _, err := exec.LookPath("dnf"); err == nil { targets["dnf"] = "dnf" }
+			if _, err := exec.LookPath("pacman"); err == nil {
+				targets["pacman"] = "pacman"
+			}
+			if _, err := exec.LookPath("xbps-install"); err == nil {
+				targets["xbps"] = "xbps"
+			}
+			isAPT := false
+			for _, bin := range []string{"apt", "apt-get", "apt-mark"} {
+				if _, err := exec.LookPath(bin); err == nil {
+					isAPT = true
+					break
+				}
+				if _, err := os.Stat("/usr/bin/" + bin); err == nil {
+					isAPT = true
+					break
+				}
+			}
+			if isAPT {
+				targets["apt"] = "apt"
+			}
+			if _, err := exec.LookPath("apk"); err == nil {
+				targets["apk"] = "apk"
+			}
+			if _, err := exec.LookPath("dnf"); err == nil {
+				targets["dnf"] = "dnf"
+			}
 		}
 	}
 
 	for target, pmType := range targets {
 		cmds, exists := pmRegistry[pmType]
-		if !exists || pmType == "" { continue }
+		if !exists || pmType == "" {
+			continue
+		}
 
 		if isPullMode {
 			var pkgs []string
 			if pmType == "apk" {
 				worldPath := "/etc/apk/world"
-				if isBedrock { worldPath = "/bedrock/strata/" + target + "/etc/apk/world" }
+				if isBedrock {
+					worldPath = "/bedrock/strata/" + target + "/etc/apk/world"
+				}
 				data, err := os.ReadFile(worldPath)
-				if err == nil { pkgs = strings.Fields(string(data)) }
+				if err == nil {
+					pkgs = strings.Fields(string(data))
+				}
 			} else {
-				out, err := runSystemCmd(target, cmds.Query)
+				out, err := runSystemCmd(target, strings.Fields(cmds.Query))
 				if err == nil {
 					rawPkgs := strings.Fields(out)
 					for _, p := range rawPkgs {
 						if pmType == "xbps" {
 							lastDash := strings.LastIndex(p, "-")
-							if lastDash != -1 { p = p[:lastDash] }
+							if lastDash != -1 {
+								p = p[:lastDash]
+							}
 						}
 						pkgs = append(pkgs, p)
 					}
@@ -299,35 +387,47 @@ func syncPackages(cfg *Config, isPullMode, needConfirm bool) map[string][]string
 
 			if pmType == "apk" {
 				worldPath := "/etc/apk/world"
-				if isBedrock { worldPath = "/bedrock/strata/" + target + "/etc/apk/world" }
+				if isBedrock {
+					worldPath = "/bedrock/strata/" + target + "/etc/apk/world"
+				}
 				data, err := os.ReadFile(worldPath)
-				if err == nil { current = strings.Fields(string(data)) }
+				if err == nil {
+					current = strings.Fields(string(data))
+				}
 			} else {
-				out, _ := runSystemCmd(target, cmds.Query)
+				out, _ := runSystemCmd(target, strings.Fields(cmds.Query))
 				rawCurrent := strings.Fields(out)
 				for _, p := range rawCurrent {
 					if pmType == "xbps" {
 						lastDash := strings.LastIndex(p, "-")
-						if lastDash != -1 { p = p[:lastDash] }
+						if lastDash != -1 {
+							p = p[:lastDash]
+						}
 					}
 					current = append(current, p)
 				}
 			}
 
 			currentMap := make(map[string]bool)
-			for _, p := range current { currentMap[p] = true }
+			for _, p := range current {
+				currentMap[p] = true
+			}
 			declaredMap := make(map[string]bool)
-			for _, p := range declared { declaredMap[p] = true }
+			for _, p := range declared {
+				declaredMap[p] = true
+			}
 
 			var toInstall []string
 			var toOrphan []string
 
 			for _, pkg := range declared {
 				if !currentMap[pkg] {
-					_, err := runSystemCmd(target, cmds.Check+" "+pkg)
+					_, err := runSystemCmd(target, append(append(strings.Fields(cmds.Check), "--"), pkg))
 					if err != nil {
 						fmt.Printf("[Warning] Package '%s' is not available in '%s' repositories!\n", pkg, target)
-						if !askConfirm("Continue applying without this package?") { log.Fatal("Operation aborted by user.") }
+						if !askConfirm("Continue applying without this package?") {
+							log.Fatal("Operation aborted by user.")
+						}
 						continue
 					}
 					toInstall = append(toInstall, pkg)
@@ -335,34 +435,54 @@ func syncPackages(cfg *Config, isPullMode, needConfirm bool) map[string][]string
 			}
 
 			for _, pkg := range current {
-				if pkg == "monocfg" { continue }
-				if !declaredMap[pkg] { toOrphan = append(toOrphan, pkg) }
+				if pkg == "monocfg" {
+					continue
+				}
+				if !declaredMap[pkg] {
+					toOrphan = append(toOrphan, pkg)
+				}
 			}
 
 			if needConfirm {
 				if len(toInstall) > 0 || len(toOrphan) > 0 {
 					fmt.Printf("\n[monocfg] Planned package changes for target '%s':\n", target)
-					if len(toInstall) > 0 { fmt.Println("  -> Will install:", strings.Join(toInstall, ", ")) }
-					if len(toOrphan) > 0 { fmt.Println("  -> Will mark as dependency (orphan):", strings.Join(toOrphan, ", ")) }
-					if !askConfirm("Apply these package changes?") { continue }
+					if len(toInstall) > 0 {
+						fmt.Println("  -> Will install:", strings.Join(toInstall, ", "))
+					}
+					if len(toOrphan) > 0 {
+						fmt.Println("  -> Will mark as dependency (orphan):", strings.Join(toOrphan, ", "))
+					}
+					if !askConfirm("Apply these package changes?") {
+						continue
+					}
 				}
 			}
 
 			if len(toInstall) > 0 {
 				fmt.Printf("[monocfg] Installing packages into %s...\n", target)
-				for _, pkg := range toInstall { _, _ = runSystemCmd(target, cmds.Install+" "+pkg) }
+				for _, pkg := range toInstall {
+					_, _ = runSystemCmd(target, append(append(strings.Fields(cmds.Install), "--"), pkg))
+				}
 			}
 
 			if len(toOrphan) > 0 {
 				fmt.Printf("[monocfg] Marking packages as orphans in %s...\n", target)
 				if pmType == "apk" {
 					worldPath := "/etc/apk/world"
-					if isBedrock { worldPath = "/bedrock/strata/" + target + "/etc/apk/world" }
+					if isBedrock {
+						worldPath = "/bedrock/strata/" + target + "/etc/apk/world"
+					}
 					var newWorld []string
-					for _, p := range current { if declaredMap[p] { newWorld = append(newWorld, p) } }
+					for _, p := range current {
+						if declaredMap[p] {
+							newWorld = append(newWorld, p)
+						}
+					}
 					_ = os.WriteFile(worldPath, []byte(strings.Join(newWorld, "\n")+"\n"), 0644)
 				} else {
-					for _, pkg := range toOrphan { _, _ = runSystemCmd(target, cmds.Orphan+" "+pkg) }
+					for _, pkg := range toOrphan {
+						_, _ = runSystemCmd(target, append(append(strings.Fields(cmds.Orphan), "--"), pkg))
+					}
 				}
 			}
 		}
@@ -372,7 +492,17 @@ func syncPackages(cfg *Config, isPullMode, needConfirm bool) map[string][]string
 
 func runEditor(path string) {
 	editor := os.Getenv("EDITOR")
-	if editor == "" { editor = "nano" }
+	if editor == "" {
+		editor = "far2ledit"
+	}
+	if _, err := exec.LookPath(editor); err != nil {
+		for _, fallback := range []string{"vi", "vim", "nano"} {
+			if _, err := exec.LookPath(fallback); err == nil {
+				editor = fallback
+				break
+			}
+		}
+	}
 	cmd := exec.Command(editor, path)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	_ = cmd.Run()
@@ -406,23 +536,32 @@ func main() {
 	confirm = *confirmLong || *confirmShort
 	gen = *genLong || *genShort
 
-	if !pull && !apply && !edit && !gen { flag.Usage(); return }
+	if !pull && !apply && !edit && !gen {
+		flag.Usage()
+		return
+	}
 
 	detectBedrock()
 	userHome := os.Getenv("HOME")
 	sudoUser := os.Getenv("SUDO_USER")
 	if sudoUser != "" && sudoUser != "root" {
 		realHome := "/home/" + sudoUser
-		if _, err := os.Stat(realHome); err == nil { userHome = realHome }
+		if _, err := os.Stat(realHome); err == nil {
+			userHome = realHome
+		}
 	}
 
 	userConfigPath := filepath.Join(userHome, ".master.conf")
 	systemConfigPath := "/root/.master.conf"
 	masterPath := userConfigPath
 
-	if os.Getuid() == 0 && sudoUser == "" { masterPath = systemConfigPath } else {
+	if os.Getuid() == 0 && sudoUser == "" {
+		masterPath = systemConfigPath
+	} else {
 		if _, err := os.Stat(userConfigPath); os.IsNotExist(err) {
-			if _, err := os.Stat(systemConfigPath); err == nil { masterPath = systemConfigPath }
+			if _, err := os.Stat(systemConfigPath); err == nil {
+				masterPath = systemConfigPath
+			}
 		}
 	}
 
@@ -480,16 +619,22 @@ func main() {
 		return
 	}
 
-	if apply || edit { checkRoot() }
+	if apply || edit {
+		checkRoot()
+	}
 	fmt.Printf("[monocfg] Using configuration target file: %s\n", masterPath)
 
 	cfg, err := parseMasterConf(masterPath)
-	if err != nil { log.Fatalf("Error: %v", err) }
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
 
 	if edit {
 		runEditor(masterPath)
 		cfg, err = parseMasterConf(masterPath)
-		if err != nil { log.Fatalf("Error: %v", err) }
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
 		apply = true
 	}
 
@@ -498,31 +643,41 @@ func main() {
 		files := gatherFiles(cfg)
 		_ = os.MkdirAll(filepath.Dir(masterPath), 0755)
 		f, err := os.Create(masterPath)
-		if err != nil { log.Fatalf("Error: %v", err) }
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
 		defer f.Close()
 
 		fmt.Fprintln(f, "# .master.conf — Generated by monocfg (GPL v3)\n")
 		for target, pkgs := range pulledPackages {
 			fmt.Fprintf(f, "packages \"%s\" [\n", target)
-			for _, pkg := range pkgs { fmt.Fprintf(f, "    %s\n", pkg) }
+			for _, pkg := range pkgs {
+				fmt.Fprintf(f, "    %s\n", pkg)
+			}
 			fmt.Fprintln(f, "]\n")
 		}
-		for _, imp := range cfg.Imports { fmt.Fprintf(f, "import \"%s\"\n", imp) }
-		for _, excl := range cfg.Excludes { fmt.Fprintf(f, "exclude \"%s\"\n", excl) }
+		for _, imp := range cfg.Imports {
+			fmt.Fprintf(f, "import \"%s\"\n", imp)
+		}
+		for _, excl := range cfg.Excludes {
+			fmt.Fprintf(f, "exclude \"%s\"\n", excl)
+		}
 		fmt.Fprintln(f)
 
 		for _, path := range files {
 			content, err := os.ReadFile(path)
-			if err != nil { continue }
+			if err != nil {
+				continue
+			}
 			fmt.Fprintf(f, "// @begin \"%s\"\n", path)
 			f.Write(content)
-			
+
 			// HACK: If the file inside does not end with a line break,
 			// we force-add a \n before the closing marker so as not to break the syntax!
 			if len(content) > 0 && content[len(content)-1] != '\n' {
 				fmt.Fprintln(f)
 			}
-			
+
 			fmt.Fprintf(f, "// @end \"%s\"\n\n", path)
 		}
 		fmt.Printf("[monocfg] System state snapshot successfully saved to %s\n", masterPath)
